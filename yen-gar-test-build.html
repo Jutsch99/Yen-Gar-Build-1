@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Yen-Gar • Test Build 1</title>
+<style>
+  :root{
+    /* ===== Overlay alignment tuned to your board image ===== */
+    --bottom-x: 11; --bottom-y: 16; --bottom-w: 78; --bottom-h: 70;   /* A1..F10 */
+    --top-x: 22; --top-y: 7.5; --top-w: 56; --top-h: 9.5;             /* T1..T15 */
+    --castle-size: 9;
+    --castle-tl-x: 2.5;  --castle-tl-y: 3.0;
+    --castle-tr-x: 88.5; --castle-tr-y: 3.0;
+    --castle-bl-x: 2.5;  --castle-bl-y: 88.5;
+    --castle-br-x: 88.5; --castle-br-y: 88.5;
+
+    /* Look/feel */
+    --piece-size: clamp(28px, 5.5vmin, 64px);
+    --pile-gap: 8px;
+    --max-width: 1200px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:#0e0f13; color:#fafafa; font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    touch-action: manipulation;
+  }
+  header{
+    position:sticky; top:0; z-index:50; background:#10131a;
+    border-bottom:1px solid #2a3142; padding:10px 12px; display:flex; align-items:center; gap:10px; justify-content:center;
+  }
+  .btn{
+    appearance:none; border:1px solid #3b445a; background:#161b26; color:#e9eefc;
+    padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:600;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 6px 18px rgba(0,0,0,.25);
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:#1f2a44; border-color:#4a72ff}
+  .dice{ min-width:72px; text-align:center; font-variant-numeric:tabular-nums;
+    background:#0f1422; padding:6px 12px; border-radius:10px; border:1px solid #2a3142; }
+  .rightbar{ position:absolute; right:12px; top:8px; display:flex; gap:10px; }
+  .wrap{ margin:18px auto; display:grid; grid-template-columns: minmax(0,1fr);
+    max-width:var(--max-width); width:100%; gap:14px; padding:0 10px; }
+  .board-box{
+    position:relative; width:100%;
+    aspect-ratio: 16 / 10; /* updated to real ratio after image loads */
+    background:#0a0c12; border-radius:14px; overflow:hidden; border:1px solid #2a3142;
+  }
+  .board{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+    user-select:none; -webkit-user-drag:none; pointer-events:none;
+  }
+  .overlay{ position:absolute; inset:0; pointer-events:none; }
+  .tile{ position:absolute; outline:1px dashed rgba(255,255,255,.08); border-radius:4px; pointer-events:auto; }
+  .tile.castle{ outline-style:solid; outline-color:rgba(255,215,0,.25) }
+  .piles{ position:absolute; inset:0; pointer-events:none; }
+  .pile{ position:absolute; display:flex; flex-wrap:wrap; gap:var(--pile-gap);
+    width: calc(var(--piece-size) * 3 + var(--pile-gap) * 2); pointer-events:none; }
+  .pile.left{ left:0; top:50%; transform:translate(-105%,-50%); justify-content:flex-end }
+  .pile.right{ right:0; top:50%; transform:translate(105%,-50%); justify-content:flex-start }
+  .piece{
+    width:var(--piece-size); height:var(--piece-size);
+    border-radius:50%; position:absolute; left:0; top:0;
+    transform:translate(-50%,-50%); touch-action:none; user-select:none; -webkit-user-drag:none;
+    cursor:grab; pointer-events:auto; z-index:5; box-shadow:0 4px 14px rgba(0,0,0,.45);
+    transition: box-shadow .12s ease;
+  }
+  .piece:active{ cursor:grabbing; box-shadow:0 6px 18px rgba(0,0,0,.6) }
+  .fade-out{ animation: fade .33s ease forwards }
+  @keyframes fade{ to{ opacity:0; transform:translate(-50%,-50%) scale(.6) } }
+  @media (max-width:720px){ .rightbar{ position:static; justify-content:center } }
+</style>
+</head>
+<body>
+  <header>
+    <span class="title">Yen-Gar • Test Build</span>
+    <button id="diceBtn" class="btn primary">🎲 Dice</button>
+    <div id="diceVal" class="dice">—</div>
+    <div class="rightbar">
+      <button id="resetBtn" class="btn">Reset board</button>
+    </div>
+  </header>
+  <div class="wrap">
+    <div class="board-box" id="boardBox">
+      <img id="boardImg" class="board" src="board.png" alt="Yen-Gar Board" />
+      <div class="overlay" id="overlay"></div>
+      <div class="piles">
+        <div class="pile left" id="pileLeft"></div>
+        <div class="pile right" id="pileRight"></div>
+      </div>
+    </div>
+  </div>
+<script>
+const WALL_STYLE = 'black';
+const SPRITES = {
+  KingQueen: "king.png",
+  Purple:    "purple.png",
+  Special:   "special.png",
+  Red:       "red.png",
+  Green:     "green.png",
+  Blue:      "blue.png",
+  Yellow:    "yellow.png",
+  TopDisc:   "topdisc.png",
+  Wall:      (WALL_STYLE === 'white') ? "wall-white.png" : "wall-black.png",
+  Spawner:   "spawner.png"
+};
+const boardBox = document.getElementById('boardBox');
+const boardImg = document.getElementById('boardImg');
+const overlay  = document.getElementById('overlay');
+const pileLeft = document.getElementById('pileLeft');
+const pileRight= document.getElementById('pileRight');
+const diceBtn  = document.getElementById('diceBtn');
+const diceVal  = document.getElementById('diceVal');
+const resetBtn = document.getElementById('resetBtn');
+boardImg.addEventListener('load', () => {
+  const w = boardImg.naturalWidth || 1600, h = boardImg.naturalHeight || 1000;
+  boardBox.style.aspectRatio = `${w} / ${h}`;
+});
+const tiles = [];
+function getVar(n){return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n))||0;}
+function pct(n){return n+'%';}
+function addCastle(id,x,y,s){tiles.push({id,topLevel:false,x,y,w:s,h:s,castle:true});}
+function buildTiles(){
+  tiles.length=0;
+  const bx=+getVar('--bottom-x'), by=+getVar('--bottom-y'), bw=+getVar('--bottom-w'), bh=+getVar('--bottom-h');
+  for(let r=0;r<10;r++) for(let c=0;c<6;c++){
+    tiles.push({id:'ABCDEF'[c]+(r+1),topLevel:false,x:bx+bw/6*c,y:by+bh/10*r,w:bw/6,h:bh/10,castle:false});
+  }
+  const tx=+getVar('--top-x'), ty=+getVar('--top-y'), tw=+getVar('--top-w'), th=+getVar('--top-h');
+  for(let i=0;i<15;i++) tiles.push({id:'T'+(i+1),topLevel:true,x:tx+tw/15*i,y:ty,w:tw/15,h:th,castle:false});
+  const cs=+getVar('--castle-size');
+  addCastle('Castle-TL',+getVar('--castle-tl-x'),+getVar('--castle-tl-y'),cs);
+  addCastle('Castle-TR',+getVar('--castle-tr-x'),+getVar('--castle-tr-y'),cs);
+  addCastle('Castle-BL',+getVar('--castle-bl-x'),+getVar('--castle-bl-y'),cs);
+  addCastle('Castle-BR',+getVar('--castle-br-x'),+getVar('--castle-br-y'),cs);
+}
+const tileEls=new Map();
+function renderOverlay(){
+  overlay.innerHTML=''; tileEls.clear();
+  for(const t of tiles){
+    const el=document.createElement('div');
+    el.className='tile'+(t.castle?' castle':'');
+    el.dataset.id=t.id; el.dataset.top=t.topLevel?'1':'0';
+    el.style.left=pct(t.x); el.style.top=pct(t.y); el.style.width=pct(t.w); el.style.height=pct(t.h);
+    overlay.appendChild(el);
+    tileEls.set(t.id, el);
+  }
+}
+const START_SET = [
+  {type:'KingQueen', count:2},
+  {type:'Purple',    count:1},
+  {type:'Special',   count:1},
+  {type:'Red',       count:8},
+  {type:'Green',     count:2},
+  {type:'Blue',      count:4},
+  {type:'Yellow',    count:4},
+  {type:'TopDisc',   count:3},
+  {type:'Wall',      count:4},
+  {type:'Spawner',   count:1}
+];
+let pieces = [];
+function createPieces(){
+  pieces = [];
+  pileLeft.innerHTML = '';
+  pileRight.innerHTML = '';
+  const leftPos = layoutPile(pileLeft, 'left');
+  const rightPos= layoutPile(pileRight, 'right');
+  for(const side of ['P1','P2']){
+    for(const it of START_SET){
+      for(let i=0;i<it.count;i++){
+        const el = document.createElement('img');
+        el.draggable = false;
+        el.className = 'piece';
+        el.alt = `${side} ${it.type}`;
+        el.src = SPRITES[it.type] || SPRITES.Red;
+        const p = { el, type:it.type, side, tileId:null, x:0, y:0 };
+        pieces.push(p);
+        boardBox.appendChild(el);
+        const pos = side==='P1' ? leftPos.next() : rightPos.next();
+        setPiecePos(p, pos.x, pos.y);
+        enableDrag(p);
+      }
+    }
+  }
+}
+function layoutPile(container, side){
+  container.style.pointerEvents = 'none';
+  const col = 3; let idx=0;
+  return {
+    next(){
+      const c = idx % col, r = Math.floor(idx / col); idx++;
+      const rect = container.getBoundingClientRect();
+      const bb = boardBox.getBoundingClientRect();
+      const piece = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--piece-size'))||48;
+      const gap = 8;
+      const x = (side==='left')
+        ? rect.right - piece/2 - (col-1-c)*((rect.width)/col)
+        : rect.left  + piece/2 + c*((rect.width)/col);
+      const y = rect.top + piece/2 + r*(piece+gap);
+      return { x: x - bb.left, y: y - bb.top };
+    }
+  };
+}
+function setPiecePos(p, x, y){ p.x = x; p.y = y; p.el.style.left = x + 'px'; p.el.style.top = y + 'px'; }
+let drag = null;
+function enableDrag(p){
+  p.el.addEventListener('pointerdown', (ev)=>{
+    p.el.setPointerCapture(ev.pointerId);
+    drag = { p, dx: ev.clientX - p.x, dy: ev.clientY - p.y };
+    p.el.style.zIndex = 20;
+  });
+  window.addEventListener('pointermove', (ev)=>{
+    if(!drag) return;
+    setPiecePos(drag.p, ev.clientX - drag.dx, ev.clientY - drag.dy);
+  }, {passive:true});
+  window.addEventListener('pointerup', ()=>{
+    if(!drag) return;
+    const nearest = findNearestTile(drag.p);
+    if(nearest){
+      const occupied = findPieceOnTile(nearest.id, drag.p);
+      snapPieceToTile(drag.p, nearest);
+      ping(600, 0.03);
+      if(occupied){
+        occupied.el.classList.add('fade-out');
+        setTimeout(()=>{ occupied.el.remove(); pieces = pieces.filter(q=>q!==occupied); }, 330);
+        ping(220, 0.06);
+      }
+    }
+    drag.p.el.style.zIndex = 5;
+    drag = null;
+  });
+}
+function findNearestTile(p){
+  const bb = boardBox.getBoundingClientRect();
+  const xPct = (p.x / bb.width) * 100;
+  const yPct = (p.y / bb.height)* 100;
+  let best=null, bestD=1e9;
+  for(const t of tiles){
+    const cx = t.x + t.w/2, cy = t.y + t.h/2;
+    const d2 = (xPct-cx)**2 + (yPct-cy)**2;
+    if(d2 < bestD){ bestD = d2; best = t; }
+  }
+  return best;
+}
+function findPieceOnTile(tileId, exclude){ return pieces.find(p => p.tileId === tileId && p !== exclude); }
+function snapPieceToTile(p, t){
+  const bb = boardBox.getBoundingClientRect();
+  const cx = (t.x + t.w/2)/100 * bb.width;
+  const cy = (t.y + t.h/2)/100 * bb.height;
+  setPiecePos(p, cx, cy);
+  p.tileId = t.id;
+}
+diceBtn.addEventListener('click', ()=>{ diceVal.textContent = 1 + Math.floor(Math.random()*6); });
+resetBtn.addEventListener('click', resetBoard);
+let initialSnapshot = null;
+function snapshotInitial(){ initialSnapshot = pieces.map(p => ({type:p.type, side:p.side})); }
+function resetBoard(){
+  for(const p of pieces){ p.el.remove(); } pieces.length = 0;
+  pileLeft.innerHTML=''; pileRight.innerHTML='';
+  if(!initialSnapshot){ createPieces(); snapshotInitial(); return; }
+  const leftPos = layoutPile(pileLeft, 'left');
+  const rightPos= layoutPile(pileRight, 'right');
+  for(const spec of initialSnapshot){
+    const el = document.createElement('img');
+    el.draggable = false; el.className = 'piece';
+    el.alt = `${spec.side} ${spec.type}`;
+    el.src = SPRITES[spec.type] || SPRITES.Red;
+    const p = { el, type:spec.type, side:spec.side, tileId:null, x:0, y:0 };
+    pieces.push(p); boardBox.appendChild(el);
+    const pos = spec.side==='P1' ? leftPos.next() : rightPos.next();
+    setPiecePos(p, pos.x, pos.y); enableDrag(p);
+  }
+  diceVal.textContent = '—';
+}
+function init(){ buildTiles(); renderOverlay(); createPieces(); snapshotInitial(); }
+init();
+let AC = null;
+function ping(freq=600, dur=0.04){
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const ctx = AC, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'square'; o.frequency.value = freq;
+    g.gain.value = 0.09;
+    o.connect(g); g.connect(ctx.destination);
+    const t = ctx.currentTime;
+    o.start(t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.stop(t + dur + 0.01);
+  }catch(e){}
+}
+</script>
+</body>
+</html>
