@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Board Game</title>
+<style>
+  html, body {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: #333;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  #board-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #000;
+  }
+  #board-canvas {
+    max-height: 100%;
+    max-width: 100%;
+    height: 100%;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+  }
+  #hub {
+    flex: 1;
+    background: #222;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    box-sizing: border-box;
+    color: #fff;
+  }
+  #hub-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  #bin-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 0.9em;
+    color: white;
+  }
+  button {
+    font-size: 1.1em;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+  }
+  #dice-result {
+    font-size: 1.5em;
+    color: white;
+    margin-left: 10px;
+    min-width: 1.5em;
+    display: inline-block;
+    text-align: center;
+  }
+  #trash {
+    width: 50px;
+    height: 50px;
+    background: #444;
+    border: 2px solid red;
+    border-radius: 6px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9em;
+    font-weight: bold;
+    color: white;
+  }
+  #spawn-container {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+  .spawn-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center; /* Centered alignment */
+    margin-bottom: 6px;
+  }
+  .spawn-piece {
+    margin: 4px;
+    object-fit: contain;
+    touch-action: manipulation;
+  }
+  .spawn-standard {
+    width: 50px;
+    height: 50px;
+  }
+  .spawn-small {
+    width: 45px;
+    height: 45px;
+  }
+  .game-piece {
+    position: absolute;
+    object-fit: contain;
+    touch-action: none;
+    pointer-events: auto;
+  }
+  .piece-standard {
+    width: 50px;
+    height: 50px;
+  }
+  .piece-small {
+    width: 45px;
+    height: 45px;
+  }
+</style>
+</head>
+<body>
+
+<div id="board-container">
+  <canvas id="board-canvas"></canvas>
+</div>
+
+<div id="hub">
+  <div id="hub-top">
+    <div id="bin-container">
+      <div id="trash" title="Trash">Bin</div>
+    </div>
+    <div>
+      <button id="dice-btn">🎲 Dice</button>
+      <span id="dice-result">-</span>
+    </div>
+    <button id="clear-btn">Clear Board</button>
+  </div>
+  <div id="spawn-container">
+    <div class="spawn-row" id="spawn-black"></div>
+    <div class="spawn-row" id="spawn-white"></div>
+    <div class="spawn-row" id="spawn-other"></div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('dblclick', e => e.preventDefault());
+  document.addEventListener('touchmove', e => {
+    if (e.target.closest('.game-piece') || e.target.closest('.spawn-piece')) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  const blackMain = [
+    'king_black.PNG','attacker_black.PNG','defender_black.PNG','midfielder_black.PNG','minion_black.PNG','spawner_black.png','jynx_black.PNG'
+  ];
+  const whiteMain = [
+    'king_white.PNG','attacker_white.PNG','defender_white.PNG','midfielder_white.PNG','minion_white.PNG','spawner_white.PNG','jynx_white.PNG'
+  ];
+  const others = [
+    'wall_black.png','wall_white.png','specialdisc_black.png','specialdisc_white.PNG','topdisc_black.png','topdisc_white.PNG'
+  ];
+
+  const smallPieces = new Set([
+    'wall_black.png','wall_white.png','specialdisc_black.png','specialdisc_white.PNG','topdisc_black.png','topdisc_white.PNG'
+  ]);
+
+  const spawnBlackRow = document.getElementById('spawn-black');
+  const spawnWhiteRow = document.getElementById('spawn-white');
+  const spawnOtherRow = document.getElementById('spawn-other');
+  const trash = document.getElementById('trash');
+
+  const boardCanvas = document.getElementById('board-canvas');
+  const ctx = boardCanvas.getContext('2d');
+  const boardImage = new Image();
+  boardImage.src = 'board.png';
+  boardImage.onload = () => {
+    const scale = 2;
+    boardCanvas.width = boardImage.width * scale;
+    boardCanvas.height = boardImage.height * scale;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(boardImage, 0, 0, boardCanvas.width, boardCanvas.height);
+    boardCanvas.style.width = '100%';
+    boardCanvas.style.height = '100%';
+  };
+
+  function createSpawn(imgSrc) {
+    const img = document.createElement('img');
+    img.src = imgSrc;
+    img.classList.add('spawn-piece');
+    if (smallPieces.has(imgSrc)) {
+      img.classList.add('spawn-small');
+    } else {
+      img.classList.add('spawn-standard');
+    }
+    img.addEventListener('pointerdown', e => spawnPiece(e, imgSrc));
+    return img;
+  }
+
+  blackMain.forEach(src => spawnBlackRow.appendChild(createSpawn(src)));
+  whiteMain.forEach(src => spawnWhiteRow.appendChild(createSpawn(src)));
+  others.forEach(src => spawnOtherRow.appendChild(createSpawn(src)));
+
+  function spawnPiece(e, src) {
+    e.preventDefault();
+    const piece = document.createElement('img');
+    piece.src = src;
+    piece.classList.add('game-piece');
+    if (smallPieces.has(src)) {
+      piece.classList.add('piece-small');
+    } else {
+      piece.classList.add('piece-standard');
+    }
+    document.body.appendChild(piece);
+    startDrag(e, piece);
+    piece.setPointerCapture(e.pointerId);
+    piece.addEventListener('pointermove', ev => movePiece(ev, piece));
+    piece.addEventListener('pointerup', ev => dropPiece(ev, piece));
+  }
+
+  function startDrag(e, piece) {
+    piece.dataset.dragStart = String(performance.now());
+    movePiece(e, piece);
+  }
+
+  function movePiece(e, piece) {
+    const x = e.clientX - piece.width / 2;
+    const y = e.clientY - piece.height / 2;
+    piece.style.left = x + 'px';
+    piece.style.top = y + 'px';
+  }
+
+  function dropPiece(e, piece) {
+    try { piece.releasePointerCapture(e.pointerId); } catch {}
+    // Attempt to snap if held long enough over a dot
+    const snapped = snapIfEligible(piece, e.clientX, e.clientY);
+
+    try { piece.releasePointerCapture(e.pointerId); } catch {}
+    const trashRect = trash.getBoundingClientRect();
+    if (e.clientX >= trashRect.left && e.clientX <= trashRect.right &&
+        e.clientY >= trashRect.top && e.clientY <= trashRect.bottom) {
+      piece.remove();
+    }
+  }
+
+  document.getElementById('dice-btn').addEventListener('click', () => {
+    const roll = Math.floor(Math.random() * 6) + 1;
+    document.getElementById('dice-result').textContent = roll;
+  });
+
+  document.getElementById('clear-btn').addEventListener('click', () => {
+    document.querySelectorAll('.game-piece').forEach(p => p.remove());
+  });
+
+  // ===== Snap-to-tiles (auto-detected from 'board marked.png') =====
+  // Each point is a percentage of the board element (0..1)
+  const SNAP_POINTS = [
+  {x:0.02489851, y:0.05489791},
+  {x:0.96788208, y:0.06147749},
+  {x:0.25274414, y:0.13745776},
+  {x:0.06841296, y:0.13732815},
+  {x:0.19447924, y:0.13713502},
+  {x:0.37947253, y:0.13726176},
+  {x:0.61745746, y:0.13725429},
+  {x:0.74523841, y:0.13736743},
+  {x:0.79873568, y:0.13753692},
+  {x:0.92664724, y:0.13736622},
+  {x:0.43824237, y:0.14028728},
+  {x:0.56435973, y:0.14052580},
+  {x:0.12485329, y:0.23754626},
+  {x:0.32140911, y:0.23675986},
+  {x:0.50666166, y:0.23668509},
+  {x:0.68407397, y:0.23747902},
+  {x:0.86899654, y:0.23741140},
+  {x:0.43813218, y:0.33097852},
+  {x:0.56436614, y:0.33119454},
+  {x:0.06813545, y:0.33387071},
+  {x:0.19446500, y:0.33412502},
+  {x:0.25305728, y:0.33399283},
+  {x:0.37941126, y:0.33365659},
+  {x:0.61745711, y:0.33369141},
+  {x:0.74520535, y:0.33383530},
+  {x:0.79865432, y:0.33376082},
+  {x:0.92666407, y:0.33395234},
+  {x:0.19802320, y:0.41622836},
+  {x:0.25261927, y:0.41597224},
+  {x:0.37946910, y:0.41634538},
+  {x:0.61753258, y:0.41595668},
+  {x:0.74508971, y:0.41627210},
+  {x:0.80187696, y:0.41612826},
+  {x:0.07216261, y:0.41907447},
+  {x:0.44027424, y:0.41946693},
+  {x:0.56629511, y:0.41913303},
+  {x:0.92795283, y:0.41964936},
+  {x:0.86976544, y:0.50993730},
+  {x:0.12472420, y:0.51229842},
+  {x:0.68416413, y:0.51256326},
+  {x:0.32151393, y:0.51257935},
+  {x:0.50625134, y:0.51328652},
+  {x:0.25282674, y:0.61258839},
+  {x:0.19818374, y:0.61266852},
+  {x:0.37939783, y:0.61286721},
+  {x:0.44019501, y:0.61249615},
+  {x:0.56403868, y:0.61266020},
+  {x:0.61748488, y:0.61308194},
+  {x:0.74546840, y:0.61272957},
+  {x:0.80180030, y:0.61302218},
+  {x:0.92822011, y:0.61276141},
+  {x:0.07177160, y:0.61508279},
+  {x:0.19820180, y:0.68916752},
+  {x:0.61761694, y:0.68959605},
+  {x:0.74534138, y:0.68897303},
+  {x:0.07198561, y:0.68951484},
+  {x:0.25312836, y:0.69200401},
+  {x:0.38073642, y:0.69210940},
+  {x:0.80200165, y:0.69184852},
+  {x:0.92853218, y:0.69231036},
+  {x:0.43843785, y:0.69498471},
+  {x:0.56607844, y:0.69511882},
+  {x:0.32166015, y:0.78295151},
+  {x:0.50669092, y:0.78344514},
+  {x:0.68429506, y:0.78396174},
+  {x:0.12504792, y:0.78306694},
+  {x:0.86956922, y:0.78395686},
+  {x:0.07205497, y:0.88556336},
+  {x:0.19838982, y:0.88566939},
+  {x:0.43816148, y:0.88545324},
+  {x:0.56610754, y:0.88540182},
+  {x:0.61755247, y:0.88546625},
+  {x:0.74546035, y:0.88577614},
+  {x:0.25320212, y:0.88836055},
+  {x:0.38065587, y:0.88867251},
+  {x:0.80171760, y:0.88861555},
+  {x:0.92862857, y:0.88873870},
+  {x:0.02480645, y:0.94558488},
+  {x:0.96764111, y:0.95145806}
+  ];
+  const SNAP_HOLD_MS = 250;   // must hold for 0.25s
+  const SNAP_RADIUS_FRAC = 0.02; // must be within 2% of min(board size)
+
+  function snapIfEligible(piece, clientX, clientY) {
+    const started = Number(piece.dataset.dragStart || 0);
+    if (!started || (performance.now() - started) < SNAP_HOLD_MS) return false;
+
+    const rect = boardCanvas.getBoundingClientRect();
+    if (clientX < rect.left || clientX > rect.right ||
+        clientY < rect.top  || clientY > rect.bottom) return false;
+
+    const maxDist = Math.min(rect.width, rect.height) * SNAP_RADIUS_FRAC;
+    const maxDist2 = maxDist * maxDist;
+
+    let best = null;
+    for (const pt of SNAP_POINTS) {
+      const px = rect.left + pt.x * rect.width;
+      const py = rect.top  + pt.y * rect.height;
+      const dx = clientX - px, dy = clientY - py;
+      const d2 = dx*dx + dy*dy;
+      if (d2 <= maxDist2 && (!best || d2 < best.d2)) best = {px, py, d2};
+    }
+    if (best) {
+      piece.style.left = (best.px - piece.width/2) + 'px';
+      piece.style.top  = (best.py - piece.height/2) + 'px';
+      return true;
+    }
+    return false;
+  }
+
+</script>
+
+</body>
+</html>
