@@ -206,7 +206,9 @@
 
     object-fit: contain;
 
-    touch-action: manipulation;
+    touch-action: none;
+
+    -webkit-user-drag: none;
 
   }
 
@@ -228,13 +230,17 @@
 
   .game-piece {
 
-    position: absolute;
+    position: fixed;
 
     object-fit: contain;
 
     touch-action: none;
 
     pointer-events: auto;
+
+    z-index: 1000;
+
+    -webkit-user-drag: none;
 
   }
 
@@ -302,25 +308,51 @@
 
 <script>
 
-  document.addEventListener('gesturestart', e => e.preventDefault());
+  /* =========================================================
 
-  document.addEventListener('dblclick', e => e.preventDefault());
+     GLOBAL TOUCH / GESTURE PREVENTION
 
-  document.addEventListener('touchmove', e => {
+     ========================================================= */
 
-    if (
+  document.addEventListener(
 
-      e.target.closest('.game-piece') ||
+    'gesturestart',
 
-      e.target.closest('.spawn-piece')
+    e => e.preventDefault()
 
-    ) {
+  );
 
-      e.preventDefault();
+  document.addEventListener(
 
-    }
+    'dblclick',
 
-  }, { passive: false });
+    e => e.preventDefault()
+
+  );
+
+  document.addEventListener(
+
+    'touchmove',
+
+    e => {
+
+      if (
+
+        e.target.closest('.game-piece') ||
+
+        e.target.closest('.spawn-piece')
+
+      ) {
+
+        e.preventDefault();
+
+      }
+
+    },
+
+    { passive: false }
+
+  );
 
   /* =========================================================
 
@@ -398,23 +430,37 @@
 
   /* =========================================================
 
-     DOM ELEMENTS
+     DOM
 
      ========================================================= */
 
-  const spawnBlackRow = document.getElementById('spawn-black');
+  const spawnBlackRow =
 
-  const spawnWhiteRow = document.getElementById('spawn-white');
+    document.getElementById('spawn-black');
 
-  const spawnOtherRow = document.getElementById('spawn-other');
+  const spawnWhiteRow =
 
-  const trash = document.getElementById('trash');
+    document.getElementById('spawn-white');
 
-  const boardCanvas = document.getElementById('board-canvas');
+  const spawnOtherRow =
 
-  const ctx = boardCanvas.getContext('2d');
+    document.getElementById('spawn-other');
 
-  const boardImage = new Image();
+  const trash =
+
+    document.getElementById('trash');
+
+  const boardCanvas =
+
+    document.getElementById('board-canvas');
+
+  const ctx =
+
+    boardCanvas.getContext('2d');
+
+  const boardImage =
+
+    new Image();
 
   /* =========================================================
 
@@ -428,9 +474,13 @@
 
     const scale = 2;
 
-    boardCanvas.width = boardImage.width * scale;
+    boardCanvas.width =
 
-    boardCanvas.height = boardImage.height * scale;
+      boardImage.width * scale;
+
+    boardCanvas.height =
+
+      boardImage.height * scale;
 
     ctx.imageSmoothingEnabled = false;
 
@@ -460,15 +510,17 @@
 
      ========================================================= */
 
-  function createSpawn(imgSrc) {
+  function createSpawn(src) {
 
-    const img = document.createElement('img');
+    const img =
 
-    img.src = imgSrc;
+      document.createElement('img');
+
+    img.src = src;
 
     img.classList.add('spawn-piece');
 
-    if (smallPieces.has(imgSrc)) {
+    if (smallPieces.has(src)) {
 
       img.classList.add('spawn-small');
 
@@ -482,7 +534,7 @@
 
       'pointerdown',
 
-      e => spawnPiece(e, imgSrc)
+      e => spawnPiece(e, src)
 
     );
 
@@ -490,27 +542,39 @@
 
   }
 
-  blackMain.forEach(
+  blackMain.forEach(src => {
 
-    src => spawnBlackRow.appendChild(createSpawn(src))
+    spawnBlackRow.appendChild(
 
-  );
+      createSpawn(src)
 
-  whiteMain.forEach(
+    );
 
-    src => spawnWhiteRow.appendChild(createSpawn(src))
+  });
 
-  );
+  whiteMain.forEach(src => {
 
-  others.forEach(
+    spawnWhiteRow.appendChild(
 
-    src => spawnOtherRow.appendChild(createSpawn(src))
+      createSpawn(src)
 
-  );
+    );
+
+  });
+
+  others.forEach(src => {
+
+    spawnOtherRow.appendChild(
+
+      createSpawn(src)
+
+    );
+
+  });
 
   /* =========================================================
 
-     CREATE / DRAG PIECES
+     SPAWN / DRAG
 
      ========================================================= */
 
@@ -518,7 +582,11 @@
 
     e.preventDefault();
 
-    const piece = document.createElement('img');
+    e.stopPropagation();
+
+    const piece =
+
+      document.createElement('img');
 
     piece.src = src;
 
@@ -536,15 +604,41 @@
 
     document.body.appendChild(piece);
 
-    startDrag(e, piece);
+    /*
 
-    piece.setPointerCapture(e.pointerId);
+       Wait one frame so width/height are available.
+
+    */
+
+    requestAnimationFrame(() => {
+
+      movePiece(e, piece);
+
+    });
+
+    /*
+
+       Keep the pointer captured by the piece.
+
+    */
+
+    try {
+
+      piece.setPointerCapture(e.pointerId);
+
+    } catch {}
 
     piece.addEventListener(
 
       'pointermove',
 
-      ev => movePiece(ev, piece)
+      ev => {
+
+        ev.preventDefault();
+
+        movePiece(ev, piece);
+
+      }
 
     );
 
@@ -552,61 +646,99 @@
 
       'pointerup',
 
-      ev => dropPiece(ev, piece)
+      ev => {
+
+        ev.preventDefault();
+
+        dropPiece(ev, piece);
+
+      },
+
+      { once: true }
+
+    );
+
+    piece.addEventListener(
+
+      'pointercancel',
+
+      ev => {
+
+        try {
+
+          piece.releasePointerCapture(
+
+            ev.pointerId
+
+          );
+
+        } catch {}
+
+      },
+
+      { once: true }
 
     );
 
   }
 
-  function startDrag(e, piece) {
+  /* =========================================================
 
-    movePiece(e, piece);
+     MOVE PIECE
 
-  }
+     ========================================================= */
 
   function movePiece(e, piece) {
 
-    const x = e.clientX - piece.width / 2;
+    const width =
 
-    const y = e.clientY - piece.height / 2;
+      piece.offsetWidth || 50;
 
-    piece.style.left = x + 'px';
+    const height =
 
-    piece.style.top = y + 'px';
+      piece.offsetHeight || 50;
+
+    piece.style.left =
+
+      (e.clientX - width / 2) + 'px';
+
+    piece.style.top =
+
+      (e.clientY - height / 2) + 'px';
 
   }
+
+  /* =========================================================
+
+     DROP PIECE
+
+     ========================================================= */
 
   function dropPiece(e, piece) {
 
     try {
 
-      piece.releasePointerCapture(e.pointerId);
+      piece.releasePointerCapture(
+
+        e.pointerId
+
+      );
 
     } catch {}
 
-    /* =====================================================
+    /*
 
-       SNAP TO NEAREST BOARD TILE
+       FIRST check trash.
 
-       ===================================================== */
+       This means dropping a piece on the
 
-    snapIfEligible(
+       bin deletes it instead of snapping it.
 
-      piece,
+    */
 
-      e.clientX,
+    const trashRect =
 
-      e.clientY
-
-    );
-
-    /* =====================================================
-
-       TRASH / BIN
-
-       ===================================================== */
-
-    const trashRect = trash.getBoundingClientRect();
+      trash.getBoundingClientRect();
 
     if (
 
@@ -622,7 +754,25 @@
 
       piece.remove();
 
+      return;
+
     }
+
+    /*
+
+       Otherwise attempt board snapping.
+
+    */
+
+    snapIfEligible(
+
+      piece,
+
+      e.clientX,
+
+      e.clientY
+
+    );
 
   }
 
@@ -666,7 +816,7 @@
 
         .querySelectorAll('.game-piece')
 
-        .forEach(p => p.remove());
+        .forEach(piece => piece.remove());
 
     });
 
@@ -676,17 +826,15 @@
 
      
 
-     These are the existing coordinates from your board.
+     Existing board coordinates.
 
-     They include:
+     These include the existing:
 
-     
+       - A-F board positions
 
-     - A1–F10
+       - T positions
 
-     - T1–T10
-
-     - King stalls
+       - King stalls
 
      
 
@@ -862,33 +1010,35 @@
 
      
 
-     NEW BEHAVIOR:
+     A piece snaps when released sufficiently close
 
-     
+     to a valid board position.
 
-     - No 250ms hold
+     The snap radius is based on the spacing of the
 
-     - No tiny 2% radius
-
-     - Release anywhere on the board
-
-     - Find the nearest valid snap point
-
-     - Place the piece exactly in its center
+     board positions, rather than an arbitrary tiny 2%.
 
      ========================================================= */
 
-  function snapIfEligible(piece, clientX, clientY) {
+  function snapIfEligible(
+
+    piece,
+
+    clientX,
+
+    clientY
+
+  ) {
 
     const rect =
 
       boardCanvas.getBoundingClientRect();
 
-    /* -------------------------------------------------------
+    /*
 
-       Only snap when released over the board
+       Make sure the release point is on the board.
 
-       ------------------------------------------------------- */
+    */
 
     if (
 
@@ -906,11 +1056,11 @@
 
     }
 
-    /* -------------------------------------------------------
+    /*
 
-       Find nearest snap point
+       Find nearest snap point.
 
-       ------------------------------------------------------- */
+    */
 
     let best = null;
 
@@ -936,7 +1086,7 @@
 
         clientY - py;
 
-      const d2 =
+      const distanceSquared =
 
         dx * dx +
 
@@ -946,7 +1096,7 @@
 
         !best ||
 
-        d2 < best.d2
+        distanceSquared < best.distanceSquared
 
       ) {
 
@@ -956,7 +1106,9 @@
 
           py: py,
 
-          d2: d2
+          distanceSquared:
+
+            distanceSquared
 
         };
 
@@ -964,27 +1116,103 @@
 
     }
 
-    /* -------------------------------------------------------
+    if (!best) {
 
-       Snap piece to exact center
-
-       ------------------------------------------------------- */
-
-    if (best) {
-
-      piece.style.left =
-
-        (best.px - piece.width / 2) + 'px';
-
-      piece.style.top =
-
-        (best.py - piece.height / 2) + 'px';
-
-      return true;
+      return false;
 
     }
 
-    return false;
+    /*
+
+       Calculate a sensible snap radius.
+
+       Board tiles are roughly 8-10% of board width
+
+       apart in the dense areas.
+
+       4% of the smaller board dimension gives a
+
+       comfortable "drop on tile" area without making
+
+       distant tiles steal the piece.
+
+    */
+
+    const snapRadius =
+
+      Math.min(
+
+        rect.width,
+
+        rect.height
+
+      ) * 0.045;
+
+    const snapRadiusSquared =
+
+      snapRadius * snapRadius;
+
+    /*
+
+       Only snap if close enough to a tile.
+
+    */
+
+    if (
+
+      best.distanceSquared >
+
+      snapRadiusSquared
+
+    ) {
+
+      return false;
+
+    }
+
+    /*
+
+       EXACT CENTER OF TILE
+
+    */
+
+    const pieceWidth =
+
+      piece.offsetWidth ||
+
+      piece.width ||
+
+      50;
+
+    const pieceHeight =
+
+      piece.offsetHeight ||
+
+      piece.height ||
+
+      50;
+
+    piece.style.left =
+
+      (
+
+        best.px -
+
+        pieceWidth / 2
+
+      ) + 'px';
+
+    piece.style.top =
+
+      (
+
+        best.py -
+
+        pieceHeight / 2
+
+      ) + 'px';
+
+    return true;
 
   }
 
