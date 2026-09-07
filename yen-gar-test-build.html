@@ -1,295 +1,1223 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Yen-Gar • Test Build 1</title>
-<style>
-  :root{
-    /* ===== Overlay alignment tuned to your board image ===== */
-    --bottom-x: 11; --bottom-y: 16; --bottom-w: 78; --bottom-h: 70;   /* A1..F10 */
-    --top-x: 22; --top-y: 7.5; --top-w: 56; --top-h: 9.5;             /* T1..T15 */
-    --castle-size: 9;
-    --castle-tl-x: 2.5;  --castle-tl-y: 3.0;
-    --castle-tr-x: 88.5; --castle-tr-y: 3.0;
-    --castle-bl-x: 2.5;  --castle-bl-y: 88.5;
-    --castle-br-x: 88.5; --castle-br-y: 88.5;
+<!DOCTYPE html>
 
-    /* Look/feel */
-    --piece-size: clamp(28px, 5.5vmin, 64px);
-    --pile-gap: 8px;
-    --max-width: 1200px;
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<title>Board Game</title>
+
+<style>
+
+  html, body {
+
+    height: 100%;
+
   }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0; background:#0e0f13; color:#fafafa; font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-    touch-action: manipulation;
+
+  body {
+
+    margin: 0;
+
+    background: #333;
+
+    display: flex;
+
+    flex-direction: column;
+
+    height: 100vh;
+
+    overflow: hidden;
+
+    user-select: none;
+
+    -webkit-user-select: none;
+
+    touch-action: none;
+
   }
-  header{
-    position:sticky; top:0; z-index:50; background:#10131a;
-    border-bottom:1px solid #2a3142; padding:10px 12px; display:flex; align-items:center; gap:10px; justify-content:center;
+
+  #board-container {
+
+    flex: 1;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    background: #000;
+
   }
-  .btn{
-    appearance:none; border:1px solid #3b445a; background:#161b26; color:#e9eefc;
-    padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:600;
-    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 6px 18px rgba(0,0,0,.25);
+
+  #board-canvas {
+
+    max-height: 100%;
+
+    max-width: 100%;
+
+    height: 100%;
+
+    image-rendering: crisp-edges;
+
+    image-rendering: pixelated;
+
   }
-  .btn:active{transform:translateY(1px)}
-  .btn.primary{background:#1f2a44; border-color:#4a72ff}
-  .dice{ min-width:72px; text-align:center; font-variant-numeric:tabular-nums;
-    background:#0f1422; padding:6px 12px; border-radius:10px; border:1px solid #2a3142; }
-  .rightbar{ position:absolute; right:12px; top:8px; display:flex; gap:10px; }
-  .wrap{ margin:18px auto; display:grid; grid-template-columns: minmax(0,1fr);
-    max-width:var(--max-width); width:100%; gap:14px; padding:0 10px; }
-  .board-box{
-    position:relative; width:100%;
-    aspect-ratio: 16 / 10; /* updated to real ratio after image loads */
-    background:#0a0c12; border-radius:14px; overflow:hidden; border:1px solid #2a3142;
+
+  #hub {
+
+    flex: 1;
+
+    background: #222;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    padding: 10px;
+
+    box-sizing: border-box;
+
+    color: #fff;
+
   }
-  .board{
-    position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
-    user-select:none; -webkit-user-drag:none; pointer-events:none;
+
+  #hub-top {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    width: 100%;
+
+    margin-bottom: 10px;
+
   }
-  .overlay{ position:absolute; inset:0; pointer-events:none; }
-  .tile{ position:absolute; outline:1px dashed rgba(255,255,255,.08); border-radius:4px; pointer-events:auto; }
-  .tile.castle{ outline-style:solid; outline-color:rgba(255,215,0,.25) }
-  .piles{ position:absolute; inset:0; pointer-events:none; }
-  .pile{ position:absolute; display:flex; flex-wrap:wrap; gap:var(--pile-gap);
-    width: calc(var(--piece-size) * 3 + var(--pile-gap) * 2); pointer-events:none; }
-  .pile.left{ left:0; top:50%; transform:translate(-105%,-50%); justify-content:flex-end }
-  .pile.right{ right:0; top:50%; transform:translate(105%,-50%); justify-content:flex-start }
-  .piece{
-    width:var(--piece-size); height:var(--piece-size);
-    border-radius:50%; position:absolute; left:0; top:0;
-    transform:translate(-50%,-50%); touch-action:none; user-select:none; -webkit-user-drag:none;
-    cursor:grab; pointer-events:auto; z-index:5; box-shadow:0 4px 14px rgba(0,0,0,.45);
-    transition: box-shadow .12s ease;
+
+  #bin-container {
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    font-size: 0.9em;
+
+    color: white;
+
   }
-  .piece:active{ cursor:grabbing; box-shadow:0 6px 18px rgba(0,0,0,.6) }
-  .fade-out{ animation: fade .33s ease forwards }
-  @keyframes fade{ to{ opacity:0; transform:translate(-50%,-50%) scale(.6) } }
-  @media (max-width:720px){ .rightbar{ position:static; justify-content:center } }
+
+  button {
+
+    font-size: 1.1em;
+
+    padding: 8px 12px;
+
+    border: none;
+
+    border-radius: 8px;
+
+  }
+
+  #dice-result {
+
+    font-size: 1.5em;
+
+    color: white;
+
+    margin-left: 10px;
+
+    min-width: 1.5em;
+
+    display: inline-block;
+
+    text-align: center;
+
+  }
+
+  #trash {
+
+    width: 50px;
+
+    height: 50px;
+
+    background: #444;
+
+    border: 2px solid red;
+
+    border-radius: 6px;
+
+    box-sizing: border-box;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 0.9em;
+
+    font-weight: bold;
+
+    color: white;
+
+  }
+
+  #spawn-container {
+
+    flex: 1;
+
+    width: 100%;
+
+    display: flex;
+
+    flex-direction: column;
+
+    overflow-x: hidden;
+
+  }
+
+  .spawn-row {
+
+    display: flex;
+
+    flex-direction: row;
+
+    align-items: center;
+
+    justify-content: center;
+
+    margin-bottom: 6px;
+
+  }
+
+  .spawn-piece {
+
+    margin: 4px;
+
+    object-fit: contain;
+
+    touch-action: none;
+
+    -webkit-user-drag: none;
+
+  }
+
+  .spawn-standard {
+
+    width: 50px;
+
+    height: 50px;
+
+  }
+
+  .spawn-small {
+
+    width: 45px;
+
+    height: 45px;
+
+  }
+
+  .game-piece {
+
+    position: fixed;
+
+    object-fit: contain;
+
+    touch-action: none;
+
+    pointer-events: auto;
+
+    z-index: 1000;
+
+    -webkit-user-drag: none;
+
+  }
+
+  .piece-standard {
+
+    width: 50px;
+
+    height: 50px;
+
+  }
+
+  .piece-small {
+
+    width: 45px;
+
+    height: 45px;
+
+  }
+
 </style>
+
 </head>
+
 <body>
-  <header>
-    <span class="title">Yen-Gar • Test Build</span>
-    <button id="diceBtn" class="btn primary">🎲 Dice</button>
-    <div id="diceVal" class="dice">—</div>
-    <div class="rightbar">
-      <button id="resetBtn" class="btn">Reset board</button>
+
+<div id="board-container">
+
+  <canvas id="board-canvas"></canvas>
+
+</div>
+
+<div id="hub">
+
+  <div id="hub-top">
+
+    <div id="bin-container">
+
+      <div id="trash" title="Trash">Bin</div>
+
     </div>
-  </header>
-  <div class="wrap">
-    <div class="board-box" id="boardBox">
-      <img id="boardImg" class="board" src="board.png" alt="Yen-Gar Board" />
-      <div class="overlay" id="overlay"></div>
-      <div class="piles">
-        <div class="pile left" id="pileLeft"></div>
-        <div class="pile right" id="pileRight"></div>
-      </div>
+
+    <div>
+
+      <button id="dice-btn">🎲 Dice</button>
+
+      <span id="dice-result">-</span>
+
     </div>
+
+    <button id="clear-btn">Clear Board</button>
+
   </div>
+
+  <div id="spawn-container">
+
+    <div class="spawn-row" id="spawn-black"></div>
+
+    <div class="spawn-row" id="spawn-white"></div>
+
+    <div class="spawn-row" id="spawn-other"></div>
+
+  </div>
+
+</div>
+
 <script>
-const WALL_STYLE = 'black';
-const SPRITES = {
-  KingQueen: "king.png",
-  Purple:    "purple.png",
-  Special:   "special.png",
-  Red:       "red.png",
-  Green:     "green.png",
-  Blue:      "blue.png",
-  Yellow:    "yellow.png",
-  TopDisc:   "topdisc.png",
-  Wall:      (WALL_STYLE === 'white') ? "wall-white.png" : "wall-black.png",
-  Spawner:   "spawner.png"
-};
-const boardBox = document.getElementById('boardBox');
-const boardImg = document.getElementById('boardImg');
-const overlay  = document.getElementById('overlay');
-const pileLeft = document.getElementById('pileLeft');
-const pileRight= document.getElementById('pileRight');
-const diceBtn  = document.getElementById('diceBtn');
-const diceVal  = document.getElementById('diceVal');
-const resetBtn = document.getElementById('resetBtn');
-boardImg.addEventListener('load', () => {
-  const w = boardImg.naturalWidth || 1600, h = boardImg.naturalHeight || 1000;
-  boardBox.style.aspectRatio = `${w} / ${h}`;
-});
-const tiles = [];
-function getVar(n){return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n))||0;}
-function pct(n){return n+'%';}
-function addCastle(id,x,y,s){tiles.push({id,topLevel:false,x,y,w:s,h:s,castle:true});}
-function buildTiles(){
-  tiles.length=0;
-  const bx=+getVar('--bottom-x'), by=+getVar('--bottom-y'), bw=+getVar('--bottom-w'), bh=+getVar('--bottom-h');
-  for(let r=0;r<10;r++) for(let c=0;c<6;c++){
-    tiles.push({id:'ABCDEF'[c]+(r+1),topLevel:false,x:bx+bw/6*c,y:by+bh/10*r,w:bw/6,h:bh/10,castle:false});
-  }
-  const tx=+getVar('--top-x'), ty=+getVar('--top-y'), tw=+getVar('--top-w'), th=+getVar('--top-h');
-  for(let i=0;i<15;i++) tiles.push({id:'T'+(i+1),topLevel:true,x:tx+tw/15*i,y:ty,w:tw/15,h:th,castle:false});
-  const cs=+getVar('--castle-size');
-  addCastle('Castle-TL',+getVar('--castle-tl-x'),+getVar('--castle-tl-y'),cs);
-  addCastle('Castle-TR',+getVar('--castle-tr-x'),+getVar('--castle-tr-y'),cs);
-  addCastle('Castle-BL',+getVar('--castle-bl-x'),+getVar('--castle-bl-y'),cs);
-  addCastle('Castle-BR',+getVar('--castle-br-x'),+getVar('--castle-br-y'),cs);
-}
-const tileEls=new Map();
-function renderOverlay(){
-  overlay.innerHTML=''; tileEls.clear();
-  for(const t of tiles){
-    const el=document.createElement('div');
-    el.className='tile'+(t.castle?' castle':'');
-    el.dataset.id=t.id; el.dataset.top=t.topLevel?'1':'0';
-    el.style.left=pct(t.x); el.style.top=pct(t.y); el.style.width=pct(t.w); el.style.height=pct(t.h);
-    overlay.appendChild(el);
-    tileEls.set(t.id, el);
-  }
-}
-const START_SET = [
-  {type:'KingQueen', count:2},
-  {type:'Purple',    count:1},
-  {type:'Special',   count:1},
-  {type:'Red',       count:8},
-  {type:'Green',     count:2},
-  {type:'Blue',      count:4},
-  {type:'Yellow',    count:4},
-  {type:'TopDisc',   count:3},
-  {type:'Wall',      count:4},
-  {type:'Spawner',   count:1}
-];
-let pieces = [];
-function createPieces(){
-  pieces = [];
-  pileLeft.innerHTML = '';
-  pileRight.innerHTML = '';
-  const leftPos = layoutPile(pileLeft, 'left');
-  const rightPos= layoutPile(pileRight, 'right');
-  for(const side of ['P1','P2']){
-    for(const it of START_SET){
-      for(let i=0;i<it.count;i++){
-        const el = document.createElement('img');
-        el.draggable = false;
-        el.className = 'piece';
-        el.alt = `${side} ${it.type}`;
-        el.src = SPRITES[it.type] || SPRITES.Red;
-        const p = { el, type:it.type, side, tileId:null, x:0, y:0 };
-        pieces.push(p);
-        boardBox.appendChild(el);
-        const pos = side==='P1' ? leftPos.next() : rightPos.next();
-        setPiecePos(p, pos.x, pos.y);
-        enableDrag(p);
+
+  /* =========================================================
+
+     GLOBAL TOUCH / GESTURE PREVENTION
+
+     ========================================================= */
+
+  document.addEventListener(
+
+    'gesturestart',
+
+    e => e.preventDefault()
+
+  );
+
+  document.addEventListener(
+
+    'dblclick',
+
+    e => e.preventDefault()
+
+  );
+
+  document.addEventListener(
+
+    'touchmove',
+
+    e => {
+
+      if (
+
+        e.target.closest('.game-piece') ||
+
+        e.target.closest('.spawn-piece')
+
+      ) {
+
+        e.preventDefault();
+
       }
-    }
-  }
-}
-function layoutPile(container, side){
-  container.style.pointerEvents = 'none';
-  const col = 3; let idx=0;
-  return {
-    next(){
-      const c = idx % col, r = Math.floor(idx / col); idx++;
-      const rect = container.getBoundingClientRect();
-      const bb = boardBox.getBoundingClientRect();
-      const piece = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--piece-size'))||48;
-      const gap = 8;
-      const x = (side==='left')
-        ? rect.right - piece/2 - (col-1-c)*((rect.width)/col)
-        : rect.left  + piece/2 + c*((rect.width)/col);
-      const y = rect.top + piece/2 + r*(piece+gap);
-      return { x: x - bb.left, y: y - bb.top };
-    }
+
+    },
+
+    { passive: false }
+
+  );
+
+  /* =========================================================
+
+     PIECES
+
+     ========================================================= */
+
+  const blackMain = [
+
+    'king_black.PNG',
+
+    'attacker_black.PNG',
+
+    'defender_black.PNG',
+
+    'midfielder_black.PNG',
+
+    'minion_black.PNG',
+
+    'spawner_black.png',
+
+    'jynx_black.PNG'
+
+  ];
+
+  const whiteMain = [
+
+    'king_white.PNG',
+
+    'attacker_white.PNG',
+
+    'defender_white.PNG',
+
+    'midfielder_white.PNG',
+
+    'minion_white.PNG',
+
+    'spawner_white.PNG',
+
+    'jynx_white.PNG'
+
+  ];
+
+  const others = [
+
+    'wall_black.png',
+
+    'wall_white.png',
+
+    'specialdisc_black.png',
+
+    'specialdisc_white.PNG',
+
+    'topdisc_black.png',
+
+    'topdisc_white.PNG'
+
+  ];
+
+  const smallPieces = new Set([
+
+    'wall_black.png',
+
+    'wall_white.png',
+
+    'specialdisc_black.png',
+
+    'specialdisc_white.PNG',
+
+    'topdisc_black.png',
+
+    'topdisc_white.PNG'
+
+  ]);
+
+  /* =========================================================
+
+     DOM
+
+     ========================================================= */
+
+  const spawnBlackRow =
+
+    document.getElementById('spawn-black');
+
+  const spawnWhiteRow =
+
+    document.getElementById('spawn-white');
+
+  const spawnOtherRow =
+
+    document.getElementById('spawn-other');
+
+  const trash =
+
+    document.getElementById('trash');
+
+  const boardCanvas =
+
+    document.getElementById('board-canvas');
+
+  const ctx =
+
+    boardCanvas.getContext('2d');
+
+  const boardImage =
+
+    new Image();
+
+  /* =========================================================
+
+     BOARD
+
+     ========================================================= */
+
+  boardImage.src = 'board.png';
+
+  boardImage.onload = () => {
+
+    const scale = 2;
+
+    boardCanvas.width =
+
+      boardImage.width * scale;
+
+    boardCanvas.height =
+
+      boardImage.height * scale;
+
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.drawImage(
+
+      boardImage,
+
+      0,
+
+      0,
+
+      boardCanvas.width,
+
+      boardCanvas.height
+
+    );
+
+    boardCanvas.style.width = '100%';
+
+    boardCanvas.style.height = '100%';
+
   };
-}
-function setPiecePos(p, x, y){ p.x = x; p.y = y; p.el.style.left = x + 'px'; p.el.style.top = y + 'px'; }
-let drag = null;
-function enableDrag(p){
-  p.el.addEventListener('pointerdown', (ev)=>{
-    p.el.setPointerCapture(ev.pointerId);
-    drag = { p, dx: ev.clientX - p.x, dy: ev.clientY - p.y };
-    p.el.style.zIndex = 20;
-  });
-  window.addEventListener('pointermove', (ev)=>{
-    if(!drag) return;
-    setPiecePos(drag.p, ev.clientX - drag.dx, ev.clientY - drag.dy);
-  }, {passive:true});
-  window.addEventListener('pointerup', ()=>{
-    if(!drag) return;
-    const nearest = findNearestTile(drag.p);
-    if(nearest){
-      const occupied = findPieceOnTile(nearest.id, drag.p);
-      snapPieceToTile(drag.p, nearest);
-      ping(600, 0.03);
-      if(occupied){
-        occupied.el.classList.add('fade-out');
-        setTimeout(()=>{ occupied.el.remove(); pieces = pieces.filter(q=>q!==occupied); }, 330);
-        ping(220, 0.06);
-      }
+
+  /* =========================================================
+
+     SPAWN PIECES
+
+     ========================================================= */
+
+  function createSpawn(src) {
+
+    const img =
+
+      document.createElement('img');
+
+    img.src = src;
+
+    img.classList.add('spawn-piece');
+
+    if (smallPieces.has(src)) {
+
+      img.classList.add('spawn-small');
+
+    } else {
+
+      img.classList.add('spawn-standard');
+
     }
-    drag.p.el.style.zIndex = 5;
-    drag = null;
+
+    img.addEventListener(
+
+      'pointerdown',
+
+      e => spawnPiece(e, src)
+
+    );
+
+    return img;
+
+  }
+
+  blackMain.forEach(src => {
+
+    spawnBlackRow.appendChild(
+
+      createSpawn(src)
+
+    );
+
   });
-}
-function findNearestTile(p){
-  const bb = boardBox.getBoundingClientRect();
-  const xPct = (p.x / bb.width) * 100;
-  const yPct = (p.y / bb.height)* 100;
-  let best=null, bestD=1e9;
-  for(const t of tiles){
-    const cx = t.x + t.w/2, cy = t.y + t.h/2;
-    const d2 = (xPct-cx)**2 + (yPct-cy)**2;
-    if(d2 < bestD){ bestD = d2; best = t; }
+
+  whiteMain.forEach(src => {
+
+    spawnWhiteRow.appendChild(
+
+      createSpawn(src)
+
+    );
+
+  });
+
+  others.forEach(src => {
+
+    spawnOtherRow.appendChild(
+
+      createSpawn(src)
+
+    );
+
+  });
+
+  /* =========================================================
+
+     SPAWN / DRAG
+
+     ========================================================= */
+
+  function spawnPiece(e, src) {
+
+    e.preventDefault();
+
+    e.stopPropagation();
+
+    const piece =
+
+      document.createElement('img');
+
+    piece.src = src;
+
+    piece.classList.add('game-piece');
+
+    if (smallPieces.has(src)) {
+
+      piece.classList.add('piece-small');
+
+    } else {
+
+      piece.classList.add('piece-standard');
+
+    }
+
+    document.body.appendChild(piece);
+
+    /*
+
+       Wait one frame so width/height are available.
+
+    */
+
+    requestAnimationFrame(() => {
+
+      movePiece(e, piece);
+
+    });
+
+    /*
+
+       Keep the pointer captured by the piece.
+
+    */
+
+    try {
+
+      piece.setPointerCapture(e.pointerId);
+
+    } catch {}
+
+    piece.addEventListener(
+
+      'pointermove',
+
+      ev => {
+
+        ev.preventDefault();
+
+        movePiece(ev, piece);
+
+      }
+
+    );
+
+    piece.addEventListener(
+
+      'pointerup',
+
+      ev => {
+
+        ev.preventDefault();
+
+        dropPiece(ev, piece);
+
+      },
+
+      { once: true }
+
+    );
+
+    piece.addEventListener(
+
+      'pointercancel',
+
+      ev => {
+
+        try {
+
+          piece.releasePointerCapture(
+
+            ev.pointerId
+
+          );
+
+        } catch {}
+
+      },
+
+      { once: true }
+
+    );
+
   }
-  return best;
-}
-function findPieceOnTile(tileId, exclude){ return pieces.find(p => p.tileId === tileId && p !== exclude); }
-function snapPieceToTile(p, t){
-  const bb = boardBox.getBoundingClientRect();
-  const cx = (t.x + t.w/2)/100 * bb.width;
-  const cy = (t.y + t.h/2)/100 * bb.height;
-  setPiecePos(p, cx, cy);
-  p.tileId = t.id;
-}
-diceBtn.addEventListener('click', ()=>{ diceVal.textContent = 1 + Math.floor(Math.random()*6); });
-resetBtn.addEventListener('click', resetBoard);
-let initialSnapshot = null;
-function snapshotInitial(){ initialSnapshot = pieces.map(p => ({type:p.type, side:p.side})); }
-function resetBoard(){
-  for(const p of pieces){ p.el.remove(); } pieces.length = 0;
-  pileLeft.innerHTML=''; pileRight.innerHTML='';
-  if(!initialSnapshot){ createPieces(); snapshotInitial(); return; }
-  const leftPos = layoutPile(pileLeft, 'left');
-  const rightPos= layoutPile(pileRight, 'right');
-  for(const spec of initialSnapshot){
-    const el = document.createElement('img');
-    el.draggable = false; el.className = 'piece';
-    el.alt = `${spec.side} ${spec.type}`;
-    el.src = SPRITES[spec.type] || SPRITES.Red;
-    const p = { el, type:spec.type, side:spec.side, tileId:null, x:0, y:0 };
-    pieces.push(p); boardBox.appendChild(el);
-    const pos = spec.side==='P1' ? leftPos.next() : rightPos.next();
-    setPiecePos(p, pos.x, pos.y); enableDrag(p);
+
+  /* =========================================================
+
+     MOVE PIECE
+
+     ========================================================= */
+
+  function movePiece(e, piece) {
+
+    const width =
+
+      piece.offsetWidth || 50;
+
+    const height =
+
+      piece.offsetHeight || 50;
+
+    piece.style.left =
+
+      (e.clientX - width / 2) + 'px';
+
+    piece.style.top =
+
+      (e.clientY - height / 2) + 'px';
+
   }
-  diceVal.textContent = '—';
-}
-function init(){ buildTiles(); renderOverlay(); createPieces(); snapshotInitial(); }
-init();
-let AC = null;
-function ping(freq=600, dur=0.04){
-  try{
-    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
-    const ctx = AC, o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = 'square'; o.frequency.value = freq;
-    g.gain.value = 0.09;
-    o.connect(g); g.connect(ctx.destination);
-    const t = ctx.currentTime;
-    o.start(t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.stop(t + dur + 0.01);
-  }catch(e){}
-}
+
+  /* =========================================================
+
+     DROP PIECE
+
+     ========================================================= */
+
+  function dropPiece(e, piece) {
+
+    try {
+
+      piece.releasePointerCapture(
+
+        e.pointerId
+
+      );
+
+    } catch {}
+
+    /*
+
+       FIRST check trash.
+
+       This means dropping a piece on the
+
+       bin deletes it instead of snapping it.
+
+    */
+
+    const trashRect =
+
+      trash.getBoundingClientRect();
+
+    if (
+
+      e.clientX >= trashRect.left &&
+
+      e.clientX <= trashRect.right &&
+
+      e.clientY >= trashRect.top &&
+
+      e.clientY <= trashRect.bottom
+
+    ) {
+
+      piece.remove();
+
+      return;
+
+    }
+
+    /*
+
+       Otherwise attempt board snapping.
+
+    */
+
+    snapIfEligible(
+
+      piece,
+
+      e.clientX,
+
+      e.clientY
+
+    );
+
+  }
+
+  /* =========================================================
+
+     DICE
+
+     ========================================================= */
+
+  document
+
+    .getElementById('dice-btn')
+
+    .addEventListener('click', () => {
+
+      const roll =
+
+        Math.floor(Math.random() * 6) + 1;
+
+      document.getElementById(
+
+        'dice-result'
+
+      ).textContent = roll;
+
+    });
+
+  /* =========================================================
+
+     CLEAR BOARD
+
+     ========================================================= */
+
+  document
+
+    .getElementById('clear-btn')
+
+    .addEventListener('click', () => {
+
+      document
+
+        .querySelectorAll('.game-piece')
+
+        .forEach(piece => piece.remove());
+
+    });
+
+  /* =========================================================
+
+     SNAP POINTS
+
+     
+
+     Existing board coordinates.
+
+     These include the existing:
+
+       - A-F board positions
+
+       - T positions
+
+       - King stalls
+
+     
+
+     Coordinates are percentages of the board.
+
+     ========================================================= */
+
+  const SNAP_POINTS = [
+
+    {x:0.02489851, y:0.05489791},
+
+    {x:0.96788208, y:0.06147749},
+
+    {x:0.25274414, y:0.13745776},
+
+    {x:0.06841296, y:0.13732815},
+
+    {x:0.19447924, y:0.13713502},
+
+    {x:0.37947253, y:0.13726176},
+
+    {x:0.61745746, y:0.13725429},
+
+    {x:0.74523841, y:0.13736743},
+
+    {x:0.79873568, y:0.13753692},
+
+    {x:0.92664724, y:0.13736622},
+
+    {x:0.43824237, y:0.14028728},
+
+    {x:0.56435973, y:0.14052580},
+
+    {x:0.12485329, y:0.23754626},
+
+    {x:0.32140911, y:0.23675986},
+
+    {x:0.50666166, y:0.23668509},
+
+    {x:0.68407397, y:0.23747902},
+
+    {x:0.86899654, y:0.23741140},
+
+    {x:0.43813218, y:0.33097852},
+
+    {x:0.56436614, y:0.33119454},
+
+    {x:0.06813545, y:0.33387071},
+
+    {x:0.19446500, y:0.33412502},
+
+    {x:0.25305728, y:0.33399283},
+
+    {x:0.37941126, y:0.33365659},
+
+    {x:0.61745711, y:0.33369141},
+
+    {x:0.74520535, y:0.33383530},
+
+    {x:0.79865432, y:0.33376082},
+
+    {x:0.92666407, y:0.33395234},
+
+    {x:0.19802320, y:0.41622836},
+
+    {x:0.25261927, y:0.41597224},
+
+    {x:0.37946910, y:0.41634538},
+
+    {x:0.61753258, y:0.41595668},
+
+    {x:0.74508971, y:0.41627210},
+
+    {x:0.80187696, y:0.41612826},
+
+    {x:0.07216261, y:0.41907447},
+
+    {x:0.44027424, y:0.41946693},
+
+    {x:0.56629511, y:0.41913303},
+
+    {x:0.92795283, y:0.41964936},
+
+    {x:0.86976544, y:0.50993730},
+
+    {x:0.12472420, y:0.51229842},
+
+    {x:0.68416413, y:0.51256326},
+
+    {x:0.32151393, y:0.51257935},
+
+    {x:0.50625134, y:0.51328652},
+
+    {x:0.25282674, y:0.61258839},
+
+    {x:0.19818374, y:0.61266852},
+
+    {x:0.37939783, y:0.61286721},
+
+    {x:0.44019501, y:0.61249615},
+
+    {x:0.56403868, y:0.61266020},
+
+    {x:0.61748488, y:0.61308194},
+
+    {x:0.74546840, y:0.61272957},
+
+    {x:0.80180030, y:0.61302218},
+
+    {x:0.92822011, y:0.61276141},
+
+    {x:0.07177160, y:0.61508279},
+
+    {x:0.19820180, y:0.68916752},
+
+    {x:0.61761694, y:0.68959605},
+
+    {x:0.74534138, y:0.68897303},
+
+    {x:0.07198561, y:0.68951484},
+
+    {x:0.25312836, y:0.69200401},
+
+    {x:0.38073642, y:0.69210940},
+
+    {x:0.80200165, y:0.69184852},
+
+    {x:0.92853218, y:0.69231036},
+
+    {x:0.43843785, y:0.69498471},
+
+    {x:0.56607844, y:0.69511882},
+
+    {x:0.32166015, y:0.78295151},
+
+    {x:0.50669092, y:0.78344514},
+
+    {x:0.68429506, y:0.78396174},
+
+    {x:0.12504792, y:0.78306694},
+
+    {x:0.86956922, y:0.78395686},
+
+    {x:0.07205497, y:0.88556336},
+
+    {x:0.19838982, y:0.88566939},
+
+    {x:0.43816148, y:0.88545324},
+
+    {x:0.56610754, y:0.88540182},
+
+    {x:0.61755247, y:0.88546625},
+
+    {x:0.74546035, y:0.88577614},
+
+    {x:0.25320212, y:0.88836055},
+
+    {x:0.38065587, y:0.88867251},
+
+    {x:0.80171760, y:0.88861555},
+
+    {x:0.92862857, y:0.88873870},
+
+    {x:0.02480645, y:0.94558488},
+
+    {x:0.96764111, y:0.95145806}
+
+  ];
+
+  /* =========================================================
+
+     SNAP FUNCTION
+
+     
+
+     A piece snaps when released sufficiently close
+
+     to a valid board position.
+
+     The snap radius is based on the spacing of the
+
+     board positions, rather than an arbitrary tiny 2%.
+
+     ========================================================= */
+
+  function snapIfEligible(
+
+    piece,
+
+    clientX,
+
+    clientY
+
+  ) {
+
+    const rect =
+
+      boardCanvas.getBoundingClientRect();
+
+    /*
+
+       Make sure the release point is on the board.
+
+    */
+
+    if (
+
+      clientX < rect.left ||
+
+      clientX > rect.right ||
+
+      clientY < rect.top ||
+
+      clientY > rect.bottom
+
+    ) {
+
+      return false;
+
+    }
+
+    /*
+
+       Find nearest snap point.
+
+    */
+
+    let best = null;
+
+    for (const pt of SNAP_POINTS) {
+
+      const px =
+
+        rect.left +
+
+        pt.x * rect.width;
+
+      const py =
+
+        rect.top +
+
+        pt.y * rect.height;
+
+      const dx =
+
+        clientX - px;
+
+      const dy =
+
+        clientY - py;
+
+      const distanceSquared =
+
+        dx * dx +
+
+        dy * dy;
+
+      if (
+
+        !best ||
+
+        distanceSquared < best.distanceSquared
+
+      ) {
+
+        best = {
+
+          px: px,
+
+          py: py,
+
+          distanceSquared:
+
+            distanceSquared
+
+        };
+
+      }
+
+    }
+
+    if (!best) {
+
+      return false;
+
+    }
+
+    /*
+
+       Calculate a sensible snap radius.
+
+       Board tiles are roughly 8-10% of board width
+
+       apart in the dense areas.
+
+       4% of the smaller board dimension gives a
+
+       comfortable "drop on tile" area without making
+
+       distant tiles steal the piece.
+
+    */
+
+    const snapRadius =
+
+      Math.min(
+
+        rect.width,
+
+        rect.height
+
+      ) * 0.045;
+
+    const snapRadiusSquared =
+
+      snapRadius * snapRadius;
+
+    /*
+
+       Only snap if close enough to a tile.
+
+    */
+
+    if (
+
+      best.distanceSquared >
+
+      snapRadiusSquared
+
+    ) {
+
+      return false;
+
+    }
+
+    /*
+
+       EXACT CENTER OF TILE
+
+    */
+
+    const pieceWidth =
+
+      piece.offsetWidth ||
+
+      piece.width ||
+
+      50;
+
+    const pieceHeight =
+
+      piece.offsetHeight ||
+
+      piece.height ||
+
+      50;
+
+    piece.style.left =
+
+      (
+
+        best.px -
+
+        pieceWidth / 2
+
+      ) + 'px';
+
+    piece.style.top =
+
+      (
+
+        best.py -
+
+        pieceHeight / 2
+
+      ) + 'px';
+
+    return true;
+
+  }
+
 </script>
+
 </body>
+
 </html>
